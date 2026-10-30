@@ -1,2 +1,3 @@
-# flutter_example_app
-Flutter example app
+# flutter_dvmatyun
+
+A new Flutter project.
