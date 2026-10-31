@@ -66,6 +66,14 @@ class _HomeScreenState extends State<HomeScreen> {
           return CustomScrollView(
             slivers: [
               SliverAppBar(
+                pinned: true,
+                expandedHeight: kToolbarHeight + _HomeCards.height,
+                flexibleSpace: Padding(
+                  padding: EdgeInsets.only(
+                    top: MediaQuery.paddingOf(context).top + kToolbarHeight,
+                  ),
+                  child: const _HomeCards(),
+                ),
                 title: const Text('Home'),
                 actions: [
                   IconButton(
@@ -75,7 +83,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
-              const SliverToBoxAdapter(child: _HomeCards()),
               const SliverToBoxAdapter(child: _GameInvitation()),
             ],
           );
@@ -85,9 +92,31 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _HomeCards extends StatelessWidget {
+Future<void> _showComingSoon(BuildContext context) {
+  return showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog.adaptive(
+      title: const Text('Coming soon...'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Ok'),
+        ),
+      ],
+    ),
+  );
+}
+
+class _HomeCards extends StatefulWidget {
   const _HomeCards();
 
+  static const height = 160.0;
+
+  @override
+  State<_HomeCards> createState() => _HomeCardsState();
+}
+
+class _HomeCardsState extends State<_HomeCards> {
   static const _cards = [
     (icon: Icons.bolt, title: 'Daily challenge'),
     (icon: Icons.leaderboard, title: 'Leaderboard'),
@@ -95,32 +124,61 @@ class _HomeCards extends StatelessWidget {
     (icon: Icons.group, title: 'Friends'),
   ];
 
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 160,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.all(16),
-        itemCount: _cards.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 12),
-        itemBuilder: (context, index) {
-          final card = _cards[index];
-          return SizedBox(
-            width: 140,
-            child: Card(
-              margin: EdgeInsets.zero,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(card.icon, size: 32),
-                  const SizedBox(height: 8),
-                  Text(card.title, textAlign: TextAlign.center),
-                ],
-              ),
-            ),
-          );
-        },
+    return ScrollbarTheme(
+      data: ScrollbarThemeData(
+        thumbColor: WidgetStatePropertyAll(
+          Theme.of(context).colorScheme.primary,
+        ),
+      ),
+      child: Scrollbar(
+        controller: _scrollController,
+        thumbVisibility: true,
+        child: ScrollConfiguration(
+          behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+          child: ListView.separated(
+            controller: _scrollController,
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.all(16),
+            itemCount: _cards.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final card = _cards[index];
+              return SizedBox(
+                width: 140,
+                child: Card(
+                  margin: EdgeInsets.zero,
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: () => _showComingSoon(context),
+                    child: Center(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(card.icon, size: 32),
+                            const SizedBox(height: 8),
+                            Text(card.title),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -133,11 +191,17 @@ class _GameInvitation extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return ConstrainedBox(
-      constraints: BoxConstraints(minHeight: MediaQuery.sizeOf(context).height),
+      constraints: BoxConstraints(
+        minHeight:
+            MediaQuery.sizeOf(context).height -
+            MediaQuery.paddingOf(context).top -
+            kToolbarHeight,
+      ),
       child: ColoredBox(
         color: theme.colorScheme.primaryContainer,
         child: Center(
           child: SafeArea(
+            top: false,
             child: Padding(
               padding: const EdgeInsets.all(32),
               child: Column(
@@ -146,24 +210,18 @@ class _GameInvitation extends StatelessWidget {
                   const Icon(Icons.auto_awesome, size: 72),
                   const SizedBox(height: 24),
                   Text(
-                    'Ready to play Star Catcher?',
+                    'Ready to play Push them all?',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.headlineMedium,
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'Stars fall from the sky. Tap them before they reach the '
-                    'ground. Every star scores a point, and three misses end '
-                    'the round.',
+                    'Tap on the screen to spawn rectangles. Tap on one another for them to collide start moving.',
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 32),
                   FilledButton(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Coming soon')),
-                      );
-                    },
+                    onPressed: () => Navigator.of(context).pushNamed(AppRoutes.gameRect),
                     child: const Text('Play'),
                   ),
                 ],
