@@ -1,13 +1,10 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_dvmatyun/features/login/data/user_service.dart';
 import 'package:flutter_dvmatyun/features/login/domain/user_service_interface.dart';
+import 'package:flutter_dvmatyun/features/login/presentation/login_controller.dart';
 
 class AppScope extends InheritedWidget {
-  const AppScope({
-    required this.data,
-    required super.child,
-    super.key,
-  });
+  const AppScope({required this.data, required super.child, super.key});
 
   final AppScopeData data;
 
@@ -34,11 +31,16 @@ class AppScope extends InheritedWidget {
 }
 
 class AppScopeData {
-  const AppScopeData({required this.userService});
+  const AppScopeData({required this.userService, required this.userController});
 
   factory AppScopeData.construct() {
-    return AppScopeData(userService: UserService.construct());
+    final userService = UserService.construct();
+    return AppScopeData(
+      userService: UserService.construct(),
+      userController: UserController(userService: userService),
+    );
   }
 
   final IUserService userService;
+  final UserController userController;
 }

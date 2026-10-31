@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dvmatyun/app/data/app_scope.dart';
 import 'package:flutter_dvmatyun/app/presentation/routes.dart';
 
 /// {@template splash_screen}
@@ -23,30 +24,15 @@ class _SplashScreenState extends State<SplashScreen> {
     // Initial state initialization
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final navigator = Navigator.of(context);
-      await Future<void>.delayed(Duration(seconds: 4)); // Emulating app loading vital data
-      if (mounted){
+      final appScope = AppScope.of(context);
+      await appScope.userController.initialize();
+      if (!mounted) return;
+      if (appScope.userController.state.user == null) {
         navigator.pushReplacementNamed(AppRoutes.login);
+      } else {
+        navigator.pushReplacementNamed(AppRoutes.home);
       }
     });
-  }
-
-  @override
-  void didUpdateWidget(covariant SplashScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Widget configuration changed
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // The configuration of InheritedWidgets has changed
-    // Also called after initState but before build
-  }
-
-  @override
-  void dispose() {
-    // Permanent removal of a tree stent
-    super.dispose();
   }
   /* #endregion */
 

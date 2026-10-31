@@ -17,77 +17,161 @@ class HomeScreen extends StatefulWidget {
 
 /// State for widget HomeScreen.
 class _HomeScreenState extends State<HomeScreen> {
-  bool _isLoading = false;
+  late final userController = AppScope.ofGet(context).userController;
 
-  /* #region Lifecycle */
   @override
   void initState() {
     super.initState();
-    // Initial state initialization
+    userController.addListener(_onStateChanged);
   }
 
-  @override
-  void didUpdateWidget(covariant HomeScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Widget configuration changed
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // The configuration of InheritedWidgets has changed
-    // Also called after initState but before build
+  void _onStateChanged() {
+    final state = userController.state;
+    if (state.user == null) {
+      Navigator.of(context).pushReplacementNamed(AppRoutes.login);
+    }
+    final error = state.error;
+    if (error != null) {
+      showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog.adaptive(
+          title: const Text('Login failed'),
+          content: Text(error),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Got it'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   @override
   void dispose() {
-    // Permanent removal of a tree stent
+    userController.removeListener(_onStateChanged);
     super.dispose();
-  }
-  /* #endregion */
-
-  Future<void> _onLogoff() async {
-    final appScope = AppScope.of(context);
-    final navigator = Navigator.of(context);
-    setState(() {
-      _isLoading = true;
-    });
-    bool success = false;
-    try {
-      setState(() {
-        _isLoading = true;
-      });
-      await appScope.userService.logout();
-      success = true;
-    } on Object catch (e, st) {
-      debugPrint(' > Error: $e , st=[$st]');
-    }
-    if (!mounted) return;
-
-    if (success) {
-      navigator.pushReplacementNamed(AppRoutes.login);
-    } else {
-      setState(() {
-        _isLoading = false;
-      });
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Home screen'),
-        actions: [
-          IconButton(
-            onPressed: _onLogoff,
-            icon: Row(children: [Text('Logout'), Icon(Icons.logout)]),
-          ),
-        ],
+      body: ListenableBuilder(
+        listenable: userController,
+        builder: (context, _) {
+          if (userController.state.isLoading) {
+            return const Center(child: CircularProgressIndicator.adaptive());
+          }
+          return CustomScrollView(
+            slivers: [
+              SliverAppBar(
+                title: const Text('Home'),
+                actions: [
+                  IconButton(
+                    tooltip: 'Logout',
+                    onPressed: userController.logout,
+                    icon: const Icon(Icons.logout),
+                  ),
+                ],
+              ),
+              const SliverToBoxAdapter(child: _HomeCards()),
+              const SliverToBoxAdapter(child: _GameInvitation()),
+            ],
+          );
+        },
       ),
-      body: _isLoading
-          ? Center(child: CircularProgressIndicator.adaptive())
-          : Center(child: Text('Home screen body')),
+    );
+  }
+}
+
+class _HomeCards extends StatelessWidget {
+  const _HomeCards();
+
+  static const _cards = [
+    (icon: Icons.bolt, title: 'Daily challenge'),
+    (icon: Icons.leaderboard, title: 'Leaderboard'),
+    (icon: Icons.emoji_events, title: 'Achievements'),
+    (icon: Icons.group, title: 'Friends'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 160,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.all(16),
+        itemCount: _cards.length,
+        separatorBuilder: (context, index) => const SizedBox(width: 12),
+        itemBuilder: (context, index) {
+          final card = _cards[index];
+          return SizedBox(
+            width: 140,
+            child: Card(
+              margin: EdgeInsets.zero,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(card.icon, size: 32),
+                  const SizedBox(height: 8),
+                  Text(card.title, textAlign: TextAlign.center),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _GameInvitation extends StatelessWidget {
+  const _GameInvitation();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: MediaQuery.sizeOf(context).height),
+      child: ColoredBox(
+        color: theme.colorScheme.primaryContainer,
+        child: Center(
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.auto_awesome, size: 72),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Ready to play Star Catcher?',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.headlineMedium,
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Stars fall from the sky. Tap them before they reach the '
+                    'ground. Every star scores a point, and three misses end '
+                    'the round.',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 32),
+                  FilledButton(
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Coming soon')),
+                      );
+                    },
+                    child: const Text('Play'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
