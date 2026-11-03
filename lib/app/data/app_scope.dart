@@ -36,7 +36,7 @@ class AppScopeData {
   factory AppScopeData.construct() {
     final userService = UserService.construct();
     return AppScopeData(
-      userService: UserService.construct(),
+      userService: userService,
       userController: UserController(userService: userService),
     );
   }

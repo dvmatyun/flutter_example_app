@@ -8,29 +8,31 @@ mixin QuadTreeCameraMixin {
     capacity: 18,
   );
 
-  final _camera = QuadTreeCamera(
-    boundary: Rect.zero,
-  );
+  final _camera = QuadTreeCamera(boundary: Rect.zero);
   Rect get cameraBoundary => _camera.boundary;
   Size size = Size.zero;
 
   bool needsPaintQt = false;
 
   void mountQtCamera() {
-    _camera.set(Rect.fromCenter(
-      center: quadTree.boundary.center,
-      width: size.width,
-      height: size.height,
-    ));
+    _camera.set(
+      Rect.fromCenter(
+        center: quadTree.boundary.center,
+        width: size.width,
+        height: size.height,
+      ),
+    );
   }
 
   void updateCameraBoundary(Size newSize) {
     size = newSize;
-    _camera.set(Rect.fromCenter(
-      center: _camera.boundary.center,
-      width: size.width,
-      height: size.height,
-    ));
+    _camera.set(
+      Rect.fromCenter(
+        center: _camera.boundary.center,
+        width: size.width,
+        height: size.height,
+      ),
+    );
     needsPaintQt = true;
   }
 
@@ -45,48 +47,60 @@ mixin QuadTreeCameraMixin {
       final quadTreeAspectRatio =
           quadTree.boundary.width / quadTree.boundary.height;
       if (canvasAspectRatio > quadTreeAspectRatio) {
-        _camera.set(Rect.fromCenter(
-          center: _camera.boundary.center,
-          width: quadTree.boundary.width,
-          height: quadTree.boundary.width / canvasAspectRatio,
-        ));
+        _camera.set(
+          Rect.fromCenter(
+            center: _camera.boundary.center,
+            width: quadTree.boundary.width,
+            height: quadTree.boundary.width / canvasAspectRatio,
+          ),
+        );
       } else {
-        _camera.set(Rect.fromCenter(
-          center: _camera.boundary.center,
-          width: quadTree.boundary.height * canvasAspectRatio,
-          height: quadTree.boundary.height,
-        ));
+        _camera.set(
+          Rect.fromCenter(
+            center: _camera.boundary.center,
+            width: quadTree.boundary.height * canvasAspectRatio,
+            height: quadTree.boundary.height,
+          ),
+        );
       }
     }
     if (_camera.boundary.left < quadTree.boundary.left) {
-      _camera.set(Rect.fromLTWH(
-        0,
-        _camera.boundary.top,
-        _camera.boundary.width,
-        _camera.boundary.height,
-      ));
+      _camera.set(
+        Rect.fromLTWH(
+          0,
+          _camera.boundary.top,
+          _camera.boundary.width,
+          _camera.boundary.height,
+        ),
+      );
     } else if (_camera.boundary.right > quadTree.boundary.right) {
-      _camera.set(Rect.fromLTWH(
-        quadTree.boundary.right - _camera.boundary.width,
-        _camera.boundary.top,
-        _camera.boundary.width,
-        _camera.boundary.height,
-      ));
+      _camera.set(
+        Rect.fromLTWH(
+          quadTree.boundary.right - _camera.boundary.width,
+          _camera.boundary.top,
+          _camera.boundary.width,
+          _camera.boundary.height,
+        ),
+      );
     }
     if (_camera.boundary.top < quadTree.boundary.top) {
-      _camera.set(Rect.fromLTWH(
-        _camera.boundary.left,
-        0,
-        _camera.boundary.width,
-        _camera.boundary.height,
-      ));
+      _camera.set(
+        Rect.fromLTWH(
+          _camera.boundary.left,
+          0,
+          _camera.boundary.width,
+          _camera.boundary.height,
+        ),
+      );
     } else if (_camera.boundary.bottom > quadTree.boundary.bottom) {
-      _camera.set(Rect.fromLTWH(
-        _camera.boundary.left,
-        quadTree.boundary.bottom - _camera.boundary.height,
-        _camera.boundary.width,
-        _camera.boundary.height,
-      ));
+      _camera.set(
+        Rect.fromLTWH(
+          _camera.boundary.left,
+          quadTree.boundary.bottom - _camera.boundary.height,
+          _camera.boundary.width,
+          _camera.boundary.height,
+        ),
+      );
     }
   }
 
@@ -96,9 +110,7 @@ mixin QuadTreeCameraMixin {
 }
 
 class QuadTreeCamera {
-  QuadTreeCamera({
-    required this._boundary,
-  });
+  QuadTreeCamera({required this._boundary});
 
   /// The boundary of the camera.
   Rect get boundary => _boundary;

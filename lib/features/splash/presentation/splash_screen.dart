@@ -39,8 +39,8 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Splash screen')),
-      body: Center(child: CircularProgressIndicator.adaptive()),
+      appBar: AppBar(title: const Text('Splash screen')),
+      body: const Center(child: CircularProgressIndicator.adaptive()),
     );
   }
 }

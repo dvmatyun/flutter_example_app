@@ -1,30 +1,42 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dvmatyun/features/login/data/user.dart';
 
+/// State of the authentication.
+///
+/// [error] is the message of the last failed operation. It is kept until
+/// the next operation starts, so listeners should react to its change
+/// rather than to its presence.
+@immutable
 class LoginState {
-  const LoginState({
-    this.obscurePassword = true,
-    this.isLoading = false,
-    this.user,
-    this.error,
-  });
+  const LoginState({this.isLoading = false, this.user, this.error});
 
-  final bool obscurePassword;
   final bool isLoading;
-  final String? error;
   final User? user;
+  final String? error;
 
+  /// Nullable fields are passed as getters, so they can be reset explicitly:
+  /// `state.copyWith(user: () => null)`.
+  /// Omitted fields keep their current values.
   LoginState copyWith({
-    bool? obscurePassword,
     bool? isLoading,
-    User? user,
-    String? error,
-    bool setNullUser = false,
+    ValueGetter<User?>? user,
+    ValueGetter<String?>? error,
   }) {
     return LoginState(
-      obscurePassword: obscurePassword ?? this.obscurePassword,
       isLoading: isLoading ?? this.isLoading,
-      user: setNullUser ? null : (user ?? this.user),
-      error: error,
+      user: user != null ? user() : this.user,
+      error: error != null ? error() : this.error,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LoginState &&
+          isLoading == other.isLoading &&
+          user == other.user &&
+          error == other.error;
+
+  @override
+  int get hashCode => Object.hash(isLoading, user, error);
 }

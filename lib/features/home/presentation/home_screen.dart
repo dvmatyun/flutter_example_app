@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dvmatyun/app/data/app_scope.dart';
 import 'package:flutter_dvmatyun/app/presentation/routes.dart';
+import 'package:flutter_dvmatyun/features/login/presentation/login_state.dart';
 
 /// {@template home_screen}
 /// HomeScreen widget.
@@ -18,24 +19,30 @@ class HomeScreen extends StatefulWidget {
 /// State for widget HomeScreen.
 class _HomeScreenState extends State<HomeScreen> {
   late final userController = AppScope.ofGet(context).userController;
+  late LoginState _previousState;
 
   @override
   void initState() {
     super.initState();
+    _previousState = userController.state;
     userController.addListener(_onStateChanged);
   }
 
+  /// Reacts to state transitions only, so every navigation or dialog
+  /// happens once per change, not on every notification.
   void _onStateChanged() {
-    final state = userController.state;
-    if (state.user == null) {
+    final previous = _previousState;
+    final state = _previousState = userController.state;
+    if (previous.user != null && state.user == null) {
       Navigator.of(context).pushReplacementNamed(AppRoutes.login);
+      return;
     }
     final error = state.error;
-    if (error != null) {
+    if (error != null && error != previous.error) {
       showDialog<void>(
         context: context,
         builder: (context) => AlertDialog.adaptive(
-          title: const Text('Login failed'),
+          title: const Text('Logout failed'),
           content: Text(error),
           actions: [
             TextButton(
@@ -221,7 +228,8 @@ class _GameInvitation extends StatelessWidget {
                   ),
                   const SizedBox(height: 32),
                   FilledButton(
-                    onPressed: () => Navigator.of(context).pushNamed(AppRoutes.gameRect),
+                    onPressed: () =>
+                        Navigator.of(context).pushNamed(AppRoutes.gameRect),
                     child: const Text('Play'),
                   ),
                 ],

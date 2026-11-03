@@ -4,7 +4,10 @@ import 'package:flutter_dvmatyun/features/login/data/user_local_datasource.dart'
 import 'package:flutter_dvmatyun/features/login/domain/user_service_interface.dart';
 
 class UserService implements IUserService {
-  const UserService({required this._apiDataSource, required this._localDataSource});
+  const UserService({
+    required this._apiDataSource,
+    required this._localDataSource,
+  });
 
   factory UserService.construct() {
     return UserService(
@@ -20,7 +23,7 @@ class UserService implements IUserService {
   Future<User?> getUser() => _localDataSource.getUser();
 
   @override
-  Future<User?> login({required String login, required String password}) async {
+  Future<User> login({required String login, required String password}) async {
     final user = await _apiDataSource.login(login: login, password: password);
     await _localDataSource.saveUser(user);
     return user;

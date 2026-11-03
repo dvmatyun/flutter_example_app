@@ -1,3 +1,6 @@
+import 'package:flutter/foundation.dart';
+
+@immutable
 class User {
   const User({required this.id, required this.name, required this.login});
 
@@ -12,4 +15,15 @@ class User {
   final String login;
 
   Map<String, Object?> toJson() => {'id': id, 'name': name, 'login': login};
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is User &&
+          id == other.id &&
+          name == other.name &&
+          login == other.login;
+
+  @override
+  int get hashCode => Object.hash(id, name, login);
 }

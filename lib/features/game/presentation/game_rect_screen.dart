@@ -1,5 +1,4 @@
 import 'dart:collection';
-import 'dart:developer';
 import 'dart:math';
 
 import 'package:flutter/gestures.dart';
@@ -19,8 +18,7 @@ class GameRectScreen extends StatefulWidget {
   });
 
   @override
-  State<GameRectScreen> createState() =>
-      _GameRectScreenState();
+  State<GameRectScreen> createState() => _GameRectScreenState();
 }
 
 /// State for widget QuadTreeCollisionScreen.
@@ -29,20 +27,16 @@ class _GameRectScreenState extends State<GameRectScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(
-          title: const Text('Game screen'),
-          leading: BackButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-          ),
-        ),
-        body: SafeArea(
-          child: RePaint(
-            painter: painter,
-          ),
-        ),
-      );
+    appBar: AppBar(
+      title: const Text('Game screen'),
+      leading: BackButton(
+        onPressed: () {
+          Navigator.of(context).pop();
+        },
+      ),
+    ),
+    body: SafeArea(child: RePaint(painter: painter)),
+  );
 }
 
 class CollisionRectObject {
@@ -59,8 +53,9 @@ class CollisionRectObject {
   // Only small rects can be moved
   bool get canBeMoved => rect.width < 128 && rect.height < 128;
 
-  double get diagonalLength =>
-      sqrt(rect.width * rect.width + rect.height * rect.height);
+  /// Inverse of the mass, which is proportional to the area.
+  /// Immovable objects have an infinite mass, so their inverse mass is zero.
+  double get inverseMass => canBeMoved ? 1 / (rect.width * rect.height) : 0;
 
   Iterable<Vector2d> get vertices {
     return [
@@ -73,35 +68,20 @@ class CollisionRectObject {
 
   Vector2d get absoluteCenter => Vector2d(rect.center.dx, rect.center.dy);
 
+  // [rect] and [velocity] change every frame,
+  // so the identity of an object is its quadtree id only.
   @override
-  int get hashCode {
-    const int prime1 = 73856093;
-    const int prime2 = 19349663;
-    const int prime3 = 83492791;
-    return _hashCode ??= (id * 37 +
-            (id * prime1) +
-            ((rect.left * prime2).round() << 8) +
-            ((rect.top * prime3).round()) <<
-        4);
-  }
-
-  int? _hashCode;
+  int get hashCode => id.hashCode;
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is CollisionRectObject &&
-          id == other.id &&
-          rect == other.rect &&
-          velocity == other.velocity;
+      identical(this, other) || other is CollisionRectObject && id == other.id;
 }
 
 class Vector2d {
   const Vector2d(this.x, this.y);
 
-  Vector2d.zero()
-      : x = 0,
-        y = 0;
+  Vector2d.zero() : x = 0, y = 0;
 
   final double x;
   final double y;
@@ -157,16 +137,20 @@ class Vector2d {
 }
 
 class CollisionUtil {
-  // Object a inside object b
+  /// Separating axis test for two rects.
+  /// Returns the collision normal (pointing from [b] to [a]) and
+  /// the penetration depth, or null if the rects do not overlap.
   static ({Vector2d normal, double depth})? intercectRects(
-      CollisionRectObject a, CollisionRectObject b) {
+    CollisionRectObject a,
+    CollisionRectObject b,
+  ) {
     Vector2d normal = Vector2d.zero();
     double depth = double.maxFinite;
 
-    List<Vector2d> verticesA = a.vertices.toList();
-    List<Vector2d> verticesB = b.vertices.toList();
+    final List<Vector2d> verticesA = a.vertices.toList();
+    final List<Vector2d> verticesB = b.vertices.toList();
 
-    var normalAndDepthA = CollisionUtil.getNormalAndDepth(
+    final normalAndDepthA = CollisionUtil.getNormalAndDepth(
       verticesA,
       verticesB,
     );
@@ -175,7 +159,7 @@ class CollisionUtil {
       depth = normalAndDepthA.depth;
       normal = normalAndDepthA.normal;
     }
-    var normalAndDepthB = CollisionUtil.getNormalAndDepth(
+    final normalAndDepthB = CollisionUtil.getNormalAndDepth(
       verticesB,
       verticesA,
       insverted: true,
@@ -186,7 +170,10 @@ class CollisionUtil {
       normal = normalAndDepthB.normal;
     }
 
-    Vector2d direction = a.absoluteCenter - b.absoluteCenter;
+    // There is a separating axis.
+    if (depth <= 0) return null;
+
+    final Vector2d direction = a.absoluteCenter - b.absoluteCenter;
 
     if (direction.dot(normal) < 0) {
       normal = -normal;
@@ -203,17 +190,17 @@ class CollisionUtil {
     var normal = Vector2d.zero();
     double depth = double.maxFinite;
     for (int i = 0; i < verticesA.length; i++) {
-      Vector2d va = verticesA[i];
-      Vector2d vb = verticesA[(i + 1) % verticesA.length];
+      final Vector2d va = verticesA[i];
+      final Vector2d vb = verticesA[(i + 1) % verticesA.length];
 
-      Vector2d edge = vb - va;
+      final Vector2d edge = vb - va;
       Vector2d axis = Vector2d(-edge.y, edge.x);
       axis = axis.normalized();
 
       final pA = projectVertices(insverted ? verticesB : verticesA, axis);
       final pB = projectVertices(insverted ? verticesA : verticesB, axis);
 
-      double axisDepth = min(pB.max - pA.min, pA.max - pB.min);
+      final double axisDepth = min(pB.max - pA.min, pA.max - pB.min);
       if (axisDepth < depth) {
         depth = axisDepth;
         normal = axis;
@@ -229,7 +216,7 @@ class CollisionUtil {
     double min = double.maxFinite;
     double max = -double.maxFinite;
     for (var v in vertices) {
-      double proj = v.dot(axis);
+      final double proj = v.dot(axis);
 
       if (proj < min) {
         min = proj;
@@ -242,38 +229,40 @@ class CollisionUtil {
   }
 }
 
+/// Pair of objects with overlapping bounds (broad phase result).
+/// Instances are pooled and reused between frames.
 class CollidingPair<T> {
+  CollidingPair(this._a, this._b);
+
   T _a;
   T _b;
 
   T get a => _a;
   T get b => _b;
 
-  int get hash => _hash;
-  int _hash;
-
-  CollidingPair(this._a, this._b) : _hash = _a.hashCode ^ _b.hashCode;
-
-  /// Sets the prospect to contain [a] and [b] instead of what it previously
+  /// Sets the pair to contain [a] and [b] instead of what it previously
   /// contained.
   void set(T a, T b) {
     _a = a;
     _b = b;
-    _hash = a.hashCode ^ b.hashCode;
   }
-
-  /// Sets the prospect to contain the content of [other].
-  void setFrom(CollidingPair<T> other) {
-    _a = other._a;
-    _b = other._b;
-    _hash = other._hash;
-  }
-
-  /// Creates a new prospect object with the same content.
-  CollidingPair<T> clone() => CollidingPair(_a, _b);
 }
 
 mixin CollisionObjectsMixin on QuadTreeCameraMixin {
+  /// Bounciness: 0 - objects stick together, 1 - perfectly elastic.
+  static const double _restitution = 0.8;
+
+  /// Fraction of velocity lost per second (air friction).
+  static const double _linearDamping = 0.5;
+
+  /// Separation speed (px/s) per pixel of penetration.
+  /// Overlapping objects are pushed apart with this speed.
+  static const double _separationSpeed = 12;
+
+  /// Limits the time step after long frames, so objects can't tunnel
+  /// through bounds.
+  static const double _maxDt = 0.05;
+
   final collisionObjects = <int, CollisionRectObject>{};
   final Paint _rectPaint = Paint()
     ..color = Colors.yellow.withAlpha(150)
@@ -289,6 +278,16 @@ mixin CollisionObjectsMixin on QuadTreeCameraMixin {
     super.mountQtCamera();
 
     addSideBounds();
+  }
+
+  @override
+  void unmountQtCamera() {
+    super.unmountQtCamera();
+    // Quadtree ids are recycled after clear, so drop all objects bound to them.
+    collisionObjects.clear();
+    _collidingObjectIds.clear();
+    _collidingPairs.clear();
+    _collidingPairsCount = 0;
   }
 
   // Bounds that will restrict the area where objects can move.
@@ -331,7 +330,7 @@ mixin CollisionObjectsMixin on QuadTreeCameraMixin {
   void drawCollisionObjects(Size size, Canvas canvas) {
     canvas.save();
     canvas.translate(-cameraBoundary.left, -cameraBoundary.top);
-    for (final e in collisionObjects.values.toList()) {
+    for (final e in collisionObjects.values) {
       if (_collidingObjectIds.contains(e.id)) {
         canvas.drawRect(e.rect, _collidingPaint);
       } else {
@@ -342,100 +341,101 @@ mixin CollisionObjectsMixin on QuadTreeCameraMixin {
   }
 
   void updateCollisionObjects(double delta) {
-    final dt = delta / 1000;
-    // Checking collisions:
-    _collidingPairHashes.clear();
-    _collidingObjectIds.clear();
+    final dt = min(delta / 1000, _maxDt);
+    if (dt <= 0) return;
+
+    // Syncing objects with the quadtree:
     quadTree.forEach((id, left, top, width, height) {
+      final rect = Rect.fromLTWH(left, top, width, height);
       final obj = collisionObjects[id];
       if (obj == null) {
         collisionObjects[id] = CollisionRectObject(
           id: id,
-          rect: Rect.fromLTWH(left, top, width, height),
+          rect: rect,
           velocity: Vector2d.zero(),
         );
       } else {
-        obj.rect = Rect.fromLTWH(left, top, width, height);
+        obj.rect = rect;
       }
-      _checkCollideWith(collisionObjects[id]!);
       return true;
     });
 
-    // Manipulating colliding pairs:
-    for (final pair in _collidingPairHashes.values) {
-      final a = pair.a;
-      final b = pair.b;
-      if (!a.canBeMoved && !b.canBeMoved) {
-        continue;
-      }
-      final colisionResult = CollisionUtil.intercectRects(a, b);
-      if (colisionResult == null) {
-        continue;
-      }
+    // Broad phase, finding pairs with overlapping bounds:
+    _collidingPairsCount = 0;
+    _collidingObjectIds.clear();
+    for (final object in collisionObjects.values) {
+      _findCollisionsWith(object);
+    }
 
-      // Changing velocity depending on how deep objects intercet.
-      final depth = max(1.0, colisionResult.depth);
-      final velocityChange = colisionResult.normal * depth * dt * 64;
-
-      Vector2d changeVelocityOnImmovableCollide(
-          Vector2d velocity, Vector2d change) {
-        return Vector2d(
-          (velocity.x.sign == change.x.sign) ? velocity.x : -(velocity.x),
-          (velocity.y.sign == change.y.sign) ? velocity.y : -(velocity.y),
-        );
-      }
-
-      if (a.canBeMoved) {
-        if (!b.canBeMoved) {
-          a.velocity =
-              changeVelocityOnImmovableCollide(a.velocity, velocityChange);
-        }
-        a.velocity = a.velocity + velocityChange;
-      }
-      // both objects gain same velocity change, but in opposite directions.
-      if (b.canBeMoved) {
-        final velocityChangeB = velocityChange * -1;
-        if (!a.canBeMoved) {
-          b.velocity =
-              changeVelocityOnImmovableCollide(b.velocity, velocityChangeB);
-        }
-        b.velocity = b.velocity + velocityChangeB;
-      }
+    // Narrow phase and collision resolution:
+    for (var i = 0; i < _collidingPairsCount; i++) {
+      _resolveCollision(_collidingPairs[i]);
     }
 
     // Moving objects depending on their velocities:
+    final damping = exp(-_linearDamping * dt);
     for (final e in collisionObjects.values) {
-      quadTree.move(e.id, e.rect.left + e.velocity.x * dt,
-          e.rect.top + e.velocity.y * dt);
+      if (!e.canBeMoved) continue;
+      e.velocity = e.velocity * damping;
+      quadTree.move(
+        e.id,
+        e.rect.left + e.velocity.x * dt,
+        e.rect.top + e.velocity.y * dt,
+      );
     }
     needsPaintQt = true;
   }
 
-  final _collidingPairHashes = <int, CollidingPair<CollisionRectObject>>{};
+  /// Pool of colliding pairs, only first [_collidingPairsCount] are actual.
+  final _collidingPairs = <CollidingPair<CollisionRectObject>>[];
+  int _collidingPairsCount = 0;
   final _collidingObjectIds = <int>{};
 
-  void _checkCollideWith(
-    CollisionRectObject object,
-  ) {
+  void _findCollisionsWith(CollisionRectObject object) {
     final queryResult = quadTree.query(object.rect);
-    for (final potentialId in queryResult.ids) {
-      if (potentialId == object.id) continue;
-      final other = collisionObjects[potentialId];
+    for (final otherId in queryResult.ids) {
+      // Overlapping is symmetric, so each pair is taken
+      // only from the side of the object with the smaller id.
+      if (otherId <= object.id) continue;
+      final other = collisionObjects[otherId];
       if (other == null) continue;
-      final pair = CollidingPair(object, other);
-      if (_collidingPairHashes.containsKey(pair.hash)) {
-        // just checking that hash function is correct.
-        final existing = _collidingPairHashes[pair.hash]!;
-        debugger(
-            when: !((existing.a.id == pair.a.id &&
-                    existing.b.id == pair.b.id) ||
-                (existing.a.id == pair.b.id && existing.b.id == pair.a.id)));
-        continue;
+      if (!object.canBeMoved && !other.canBeMoved) continue;
+      if (_collidingPairsCount < _collidingPairs.length) {
+        _collidingPairs[_collidingPairsCount].set(object, other);
+      } else {
+        _collidingPairs.add(CollidingPair(object, other));
       }
-      _collidingPairHashes[pair.hash] = pair;
-      _collidingObjectIds.add(object.id);
-      _collidingObjectIds.add(other.id);
+      _collidingPairsCount++;
     }
+  }
+
+  /// Impulse based collision resolution.
+  void _resolveCollision(CollidingPair<CollisionRectObject> pair) {
+    final a = pair.a;
+    final b = pair.b;
+    final colisionResult = CollisionUtil.intercectRects(a, b);
+    if (colisionResult == null) return;
+    _collidingObjectIds
+      ..add(a.id)
+      ..add(b.id);
+
+    final inverseMassSum = a.inverseMass + b.inverseMass;
+    if (inverseMassSum == 0) return;
+
+    // The normal points from b to a, so positive velocity means separation.
+    final normal = colisionResult.normal;
+    final normalVelocity = (a.velocity - b.velocity).dot(normal);
+    // Approaching objects bounce back.
+    // Changing velocity depending on how deep objects intercet.
+    final targetVelocity = max(
+      -_restitution * normalVelocity,
+      colisionResult.depth * _separationSpeed,
+    );
+    if (normalVelocity >= targetVelocity) return;
+    final impulse =
+        normal * ((targetVelocity - normalVelocity) / inverseMassSum);
+    a.velocity = a.velocity + impulse * a.inverseMass;
+    b.velocity = b.velocity - impulse * b.inverseMass;
   }
 }
 
@@ -449,8 +449,7 @@ class QuadTreeCollisionPainter extends RePainterBase
   @override
   bool get needsPaint => needsPaintQt;
 
-  double _fitScale(Size size) =>
-      min(size.width, size.height) / _fieldExtent;
+  double _fitScale(Size size) => min(size.width, size.height) / _fieldExtent;
 
   @override
   void mount(RePaintBox box, PipelineOwner owner) {
@@ -458,8 +457,9 @@ class QuadTreeCollisionPainter extends RePainterBase
     mountQtCamera();
 
     _keyboardManager.addHandler(onKeyboardEvent);
-    _spacebarPressed =
-        HardwareKeyboard.instance.isLogicalKeyPressed(LogicalKeyboardKey.space);
+    _spacebarPressed = HardwareKeyboard.instance.isLogicalKeyPressed(
+      LogicalKeyboardKey.space,
+    );
     needsPaintQt = true;
   }
 
@@ -472,7 +472,7 @@ class QuadTreeCollisionPainter extends RePainterBase
   }
 
   bool onKeyboardEvent(KeyEvent event) {
-    bool? isKeyDown = switch (event) {
+    final bool? isKeyDown = switch (event) {
       KeyDownEvent _ => true,
       KeyRepeatEvent _ => true,
       KeyUpEvent _ => false,
@@ -503,29 +503,18 @@ class QuadTreeCollisionPainter extends RePainterBase
   @override
   void onPointerEvent(PointerEvent event) {
     switch (event) {
-      case PointerHoverEvent hover:
+      case final PointerHoverEvent hover:
         if (!_spacebarPressed) return;
         moveQtCamera(-hover.localDelta / _fitScale(size));
-      case PointerMoveEvent move:
-        if (!move.down) return;
-        _onClick(move.localPosition);
-      case PointerPanZoomUpdateEvent pan:
+      case final PointerPanZoomUpdateEvent pan:
         moveQtCamera(pan.panDelta / _fitScale(size));
-      case PointerDownEvent click:
-        _onClick(click.localPosition);
+      case final PointerDownEvent down:
+        // One rect per pointer down, dragging does not spawn more.
+        _spawnRect(down.localPosition);
     }
   }
 
-  bool _wasAdded = false;
-
-  void _onClick(Offset point) {
-    if (_wasAdded) {
-      return;
-    }
-    _wasAdded = true;
-    Future<void>.delayed(const Duration(milliseconds: 150), () {
-      _wasAdded = false;
-    });
+  void _spawnRect(Offset point) {
     // Calculate the dot offset from the camera.
     final cameraCenter = cameraBoundary.center;
     final scale = _fitScale(size);
@@ -556,6 +545,7 @@ class QuadTreeCollisionPainter extends RePainterBase
     textDirection: TextDirection.ltr,
   );
   final Paint _bgPaint = Paint()..color = Colors.lightBlue;
+  final Paint _statusBgPaint = Paint()..color = Colors.white54;
 
   int _spinnerIndex = 0;
   static const List<String> _spinnerSymbols = [
@@ -576,8 +566,9 @@ class QuadTreeCollisionPainter extends RePainterBase
     _spinnerIndex++;
     final nbsp = String.fromCharCode(160);
     final status = StringBuffer()
-      ..write(_spinnerSymbols[_spinnerIndex =
-          _spinnerIndex % _spinnerSymbols.length])
+      ..write(
+        _spinnerSymbols[_spinnerIndex = _spinnerIndex % _spinnerSymbols.length],
+      )
       ..write(' | ')
       ..write('World:')
       ..write(nbsp)
@@ -627,12 +618,9 @@ class QuadTreeCollisionPainter extends RePainterBase
         ),
         const Radius.circular(8),
       ),
-      Paint()..color = Colors.white54,
+      _statusBgPaint,
     );
-    _textPainter.paint(
-      canvas,
-      Offset(16, size.height - textSize.height - 16),
-    );
+    _textPainter.paint(canvas, Offset(16, size.height - textSize.height - 16));
   }
 
   final Paint _nodePaint = Paint()

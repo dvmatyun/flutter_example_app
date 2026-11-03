@@ -15,7 +15,7 @@ class MainApp extends StatefulWidget {
 
 class _MainAppState extends State<MainApp> {
   late final appScopeData = AppScopeData.construct();
-  
+
   @override
   Widget build(BuildContext context) {
     return AppScope(

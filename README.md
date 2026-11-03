@@ -1,3 +1,3 @@
 # flutter_dvmatyun
 
-A new Flutter project.
+Simple app with splash, login and home screens and a small collision game.
